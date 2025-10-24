@@ -39,7 +39,21 @@ export default async function DashboardPage() {
     }),
     prisma.file.findMany({
       where: { ownerId: user.id },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        summary: true,
+        category: true,
+        type: true,
+        storageUrl: true,
+        storageKey: true,
+        isPremium: true,
+        price: true,
+        currency: true,
+        totalViews: true,
+        totalPurchases: true,
+        createdAt: true,
         project: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "desc" }
@@ -77,6 +91,7 @@ export default async function DashboardPage() {
           category: file.category,
           type: file.type,
           storageUrl: file.storageUrl,
+          storageKey: file.storageKey,
           isPremium: file.isPremium,
           price: Number(file.price),
           currency: file.currency,
@@ -106,7 +121,7 @@ export default async function DashboardPage() {
         notifications={notifications.map((notification) => ({
           id: notification.id,
           type: notification.type,
-          payload: notification.payload,
+          payload: (notification.payload ?? {}) as Record<string, unknown>,
           createdAt: notification.createdAt.toISOString()
         }))}
       />
