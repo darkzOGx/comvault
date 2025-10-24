@@ -4,20 +4,33 @@ import { useEffect, useState } from "react";
 import { useWhopBridge } from "@/components/whop-bridge-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const RETRY_KEY = "whop_auth_retry_count";
+const MAX_RETRIES = 2;
+
 export function ClientDashboard() {
   const { sdk, ready, error: sdkError } = useWhopBridge();
-  const [retryCount, setRetryCount] = useState(0);
+  const [retryCount, setRetryCount] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const stored = sessionStorage.getItem(RETRY_KEY);
+    return stored ? parseInt(stored, 10) : 0;
+  });
 
   useEffect(() => {
     if (!ready || !sdk) return;
 
-    // If we have the SDK, Whop should be sending auth headers
-    // Wait a bit then reload to let the server pick them up
+    // Check if we've already tried too many times
+    if (retryCount >= MAX_RETRIES) {
+      return;
+    }
+
+    // If we have the SDK but still seeing ClientDashboard,
+    // it means server-side auth hasn't picked up yet
+    // Increment retry count and reload
     const timer = setTimeout(() => {
-      if (retryCount < 2) {
-        setRetryCount(prev => prev + 1);
-        window.location.reload();
-      }
+      const nextCount = retryCount + 1;
+      sessionStorage.setItem(RETRY_KEY, String(nextCount));
+      setRetryCount(nextCount);
+      window.location.reload();
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -48,6 +61,7 @@ export function ClientDashboard() {
               </p>
               <button
                 onClick={() => {
+                  sessionStorage.removeItem(RETRY_KEY);
                   setRetryCount(0);
                   window.location.reload();
                 }}
