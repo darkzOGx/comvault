@@ -11,10 +11,9 @@ if (!APP_ID) {
   console.warn("NEXT_PUBLIC_WHOP_APP_ID is not set. Whop auth will fail.");
 }
 
+// Disable lint rule for Whop SDK initialization pattern
 const whopServerSdk = WHOP_API_KEY
-  ? new WhopServerSdk({
-      defaultAccessToken: WHOP_API_KEY
-    })
+  ? (new (WhopServerSdk as unknown as new (config: { defaultAccessToken: string }) => ReturnType<typeof WhopServerSdk>)({ defaultAccessToken: WHOP_API_KEY }))
   : null;
 
 type WhopUserLike = {
@@ -22,9 +21,7 @@ type WhopUserLike = {
   name?: string | null;
   username?: string | null;
   email?: string | null;
-  avatar?: { url?: string | null } | null;
-  profileImage?: { url?: string | null } | null;
-  profilePicture?: string | null;
+  profilePicture?: { sourceUrl?: string | null } | string | null;
   roles?: string[] | null;
   type?: string | null;
 };
@@ -80,8 +77,21 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
         })();
 
   try {
+    // Debug logging: log all headers for troubleshooting
+    console.log("[AUTH DEBUG] Incoming headers:", {
+      authorization: targetHeaders.get("authorization"),
+      "x-whop-token": targetHeaders.get("x-whop-token"),
+      "x-whop-user-id": targetHeaders.get("x-whop-user-id"),
+      referer: targetHeaders.get("referer"),
+      origin: targetHeaders.get("origin"),
+      host: targetHeaders.get("host")
+    });
+
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
+    console.log("[AUTH DEBUG] Token verification result:", payload);
+
     if (!payload?.userId) {
+      console.log("[AUTH DEBUG] No userId in payload, authentication failed");
       return null;
     }
 
@@ -104,12 +114,11 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
       null;
 
     const avatarUrl =
-      (whopUser?.avatar && "url" in whopUser.avatar ? whopUser.avatar.url : null) ||
-      (whopUser?.profileImage && "url" in whopUser.profileImage
-        ? whopUser.profileImage.url
-        : null) ||
-      whopUser?.profilePicture ||
-      null;
+      (typeof whopUser?.profilePicture === "string"
+        ? whopUser.profilePicture
+        : whopUser?.profilePicture && typeof whopUser.profilePicture === "object" && "sourceUrl" in whopUser.profilePicture
+          ? whopUser.profilePicture.sourceUrl
+          : null) || null;
 
     const email =
       (whopUser && "email" in whopUser ? (whopUser as Record<string, unknown>)["email"] : null) ||
