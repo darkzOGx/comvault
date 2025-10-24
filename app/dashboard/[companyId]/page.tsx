@@ -5,11 +5,7 @@ import { redirect } from "next/navigation";
  * This route is expected by Whop's iframe configuration but redirects to the main dashboard
  * since Community Vault uses a single unified dashboard that handles all company contexts
  */
-export default function CompanyDashboardPage({
-  params: _params
-}: {
-  params: { companyId: string };
-}) {
+export default function CompanyDashboardPage() {
   // Redirect to the main dashboard
   // The companyId is passed by Whop but the main dashboard handles company context internally
   redirect("/dashboard");
