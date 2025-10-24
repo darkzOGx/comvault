@@ -24,7 +24,8 @@ export function WhopBridgeProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       try {
-        const sdk = createSdk({});
+        const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID;
+        const sdk = createSdk(appId ? { appId } : {});
         if (!mounted) return;
         setValue({ sdk, ready: true });
       } catch (error) {

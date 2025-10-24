@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
+import { SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
@@ -26,12 +27,9 @@ export async function POST(request: Request) {
       }
     });
 
-    cookies().set("comvault_user_id", user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      path: "/"
+    cookies().set(SESSION_COOKIE_NAME, user.id, {
+      ...SESSION_COOKIE_OPTIONS,
+      expires: new Date(Date.now() + SESSION_COOKIE_OPTIONS.maxAge * 1000)
     });
 
     return NextResponse.json({ success: true, user: { id: user.id, name: user.name, role: user.role } });

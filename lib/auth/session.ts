@@ -1,5 +1,4 @@
 import { headers, cookies } from "next/headers";
-import { cache } from "react";
 import { verifyUserToken, WhopServerSdk } from "@whop/api";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
@@ -13,8 +12,21 @@ if (!APP_ID) {
 
 // Disable lint rule for Whop SDK initialization pattern
 const whopServerSdk = WHOP_API_KEY
-  ? (new (WhopServerSdk as unknown as new (config: { defaultAccessToken: string }) => ReturnType<typeof WhopServerSdk>)({ defaultAccessToken: WHOP_API_KEY }))
+  ? new (WhopServerSdk as unknown as new (config: { defaultAccessToken: string }) => ReturnType<typeof WhopServerSdk>)({
+      defaultAccessToken: WHOP_API_KEY
+    })
   : null;
+
+export const SESSION_COOKIE_NAME = "comvault_user_id";
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const isProduction = process.env.NODE_ENV === "production";
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
+  path: "/",
+  maxAge: SESSION_MAX_AGE_SECONDS
+};
 
 type WhopUserLike = {
   id?: string;
@@ -42,7 +54,7 @@ function resolveRole(whopUser: WhopUserLike | null | undefined): UserRole {
 
 export type AuthenticatedUser = Awaited<ReturnType<typeof getCurrentUser>>;
 
-export const getCurrentUser = cache(async () => {
+export async function getCurrentUser() {
   const hdrs = headers();
   const user = await getUserFromHeaders(hdrs);
 
@@ -56,7 +68,7 @@ export const getCurrentUser = cache(async () => {
   }
 
   return user;
-});
+}
 
 export async function requireUser(request?: Request): Promise<NonNullable<AuthenticatedUser>> {
   const user = await (request ? getUserFromRequest(request) : getCurrentUser());
@@ -75,15 +87,6 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
     throw new Error("Whop app id is not configured.");
   }
 
-  // Try cookie-based session first (client-side auth fallback)
-  try {
-    const userId = cookies().get("comvault_user_id")?.value;
-    if (userId) {
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (user) return user;
-    }
-  } catch {}
-
   const targetHeaders =
     incoming instanceof Headers
       ? incoming
@@ -96,9 +99,30 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
           return hdrs;
         })();
 
+  const user = await getUserFromWhopHeaders(targetHeaders);
+  if (user) {
+    persistSessionCookie(user.id);
+    return user;
+  }
+
+  // Try cookie-based session as a fallback (used by client-side API calls)
+  try {
+    const sessionId = cookies().get(SESSION_COOKIE_NAME)?.value;
+    if (sessionId) {
+      const cookieUser = await prisma.user.findUnique({ where: { id: sessionId } });
+      if (cookieUser) return cookieUser;
+    }
+  } catch {}
+
+  return null;
+}
+
+async function getUserFromWhopHeaders(targetHeaders: Headers) {
   try {
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
-    if (!payload?.userId) return null;
+    if (!payload?.userId) {
+      return null;
+    }
 
     const whopUser =
       whopServerSdk &&
@@ -150,6 +174,14 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
   } catch (error) {
     console.error("Failed to verify Whop token", error);
     return null;
+  }
+}
+
+function persistSessionCookie(userId: string) {
+  try {
+    cookies().set(SESSION_COOKIE_NAME, userId, SESSION_COOKIE_OPTIONS);
+  } catch (error) {
+    console.warn("[AUTH] Failed to persist session cookie", error);
   }
 }
 
