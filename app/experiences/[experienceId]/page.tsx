@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
  * since Community Vault uses a single unified dashboard experience
  */
 export default function ExperiencePage({
-  params
+  params: _params
 }: {
   params: { experienceId: string };
 }) {

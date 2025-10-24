@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
  * since Community Vault uses a single unified dashboard that handles all company contexts
  */
 export default function CompanyDashboardPage({
-  params
+  params: _params
 }: {
   params: { companyId: string };
 }) {
