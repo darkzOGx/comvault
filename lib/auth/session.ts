@@ -55,16 +55,34 @@ function resolveRole(whopUser: WhopUserLike | null | undefined): UserRole {
 export type AuthenticatedUser = Awaited<ReturnType<typeof getCurrentUser>>;
 
 export async function getCurrentUser() {
+  console.log("[AUTH] getCurrentUser called");
   const hdrs = headers();
+
+  // Log all headers for debugging
+  const headerEntries: string[] = [];
+  for (const [key, value] of hdrs.entries()) {
+    headerEntries.push(`${key}: ${value}`);
+  }
+  console.log("[AUTH] Request headers:", headerEntries.join(", "));
+
   const user = await getUserFromHeaders(hdrs);
 
   // Temporary fallback: if no Whop auth, return first user from DB for testing
   if (!user) {
-    const testUser = await prisma.user.findFirst();
-    if (testUser) {
-      console.log("[AUTH] Using fallback test user:", testUser.id);
-      return testUser;
+    console.log("[AUTH] No user from Whop headers, trying fallback...");
+    try {
+      const testUser = await prisma.user.findFirst();
+      if (testUser) {
+        console.log("[AUTH] Using fallback test user:", testUser.id);
+        return testUser;
+      } else {
+        console.log("[AUTH] No users found in database");
+      }
+    } catch (error) {
+      console.error("[AUTH] Error fetching fallback user:", error);
     }
+  } else {
+    console.log("[AUTH] User authenticated via Whop:", user.id);
   }
 
   return user;
@@ -119,10 +137,14 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
 
 async function getUserFromWhopHeaders(targetHeaders: Headers) {
   try {
+    console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
+    console.log("[AUTH] Whop token payload:", payload);
     if (!payload?.userId) {
+      console.log("[AUTH] No userId in Whop token payload");
       return null;
     }
+    console.log("[AUTH] Whop userId found:", payload.userId);
 
     const whopUser =
       whopServerSdk &&
