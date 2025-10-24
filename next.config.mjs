@@ -13,6 +13,15 @@ const nextConfig = {
         hostname: process.env.NEXT_PUBLIC_S3_PUBLIC_HOST || "**"
       }
     ]
+  },
+  webpack: (config, { isServer }) => {
+    // Fix for pdf-parse trying to access test files during build
+    if (isServer) {
+      config.externals.push({
+        canvas: "commonjs canvas"
+      });
+    }
+    return config;
   }
 };
 

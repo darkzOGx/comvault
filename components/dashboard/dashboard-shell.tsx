@@ -121,7 +121,7 @@ export function DashboardShell({
     setSelectedFileId(fileId);
   };
 
-  const handleCheckout = async (file: DashboardFile) => {
+  const handleCheckout = async (file: { id: string; title: string; price: number }) => {
     setCheckoutLoading(true);
     try {
       const response = await fetch("/api/checkout", {

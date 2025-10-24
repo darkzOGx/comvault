@@ -3,30 +3,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getUserAnalytics } from "@/lib/analytics";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-        <Card className="max-w-lg">
-          <CardHeader>
-            <CardTitle>Whop session required</CardTitle>
-            <CardDescription>
-              Launch Community Vault from your Whop workspace so we can authenticate you and sync
-              your content.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              If you believe you are seeing this message in error, ensure that the Whop iframe is
-              passing the user token to the app.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    const { ClientDashboard } = await import("./client-dashboard");
+    return <ClientDashboard />;
   }
 
   const [projects, files, analytics, notifications] = await Promise.all([

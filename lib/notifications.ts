@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { NotificationType } from "@prisma/client";
+import { NotificationType, Prisma } from "@prisma/client";
 import { Resend } from "resend";
 
 const resendKey = process.env.RESEND_API_KEY;
@@ -10,7 +10,7 @@ const resend = resendKey ? new Resend(resendKey) : null;
 type NotificationParams = {
   userId: string;
   type: NotificationType;
-  payload: Record<string, unknown>;
+  payload: Prisma.InputJsonValue;
   emailSubject?: string;
   emailBody?: string;
 };

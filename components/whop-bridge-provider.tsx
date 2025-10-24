@@ -1,11 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppsSdk } from "@whop/iframe/dist/types";
 import { createSdk } from "@whop/iframe";
 
 type BridgeContextValue = {
-  sdk: AppsSdk | null;
+  sdk: ReturnType<typeof createSdk> | null;
   ready: boolean;
   error?: string;
 };

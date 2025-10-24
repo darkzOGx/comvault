@@ -6,8 +6,9 @@ import { calculateSplit, describeSplit } from "@/lib/payouts";
 const whopApiKey = process.env.WHOP_SERVER_API_KEY;
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
+// Disable lint rule for Whop SDK initialization pattern
 export const whop = whopApiKey
-  ? new WhopServerSdk({ defaultAccessToken: whopApiKey })
+  ? (new (WhopServerSdk as unknown as new (config: { defaultAccessToken: string }) => ReturnType<typeof WhopServerSdk>)({ defaultAccessToken: whopApiKey }))
   : null;
 
 export async function createCheckoutSession(params: {

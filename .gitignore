@@ -37,3 +37,6 @@ next-env.d.ts
 prisma/.env
 
 .vercel
+
+VERCEL_ENV_VARS.md
+.env.production

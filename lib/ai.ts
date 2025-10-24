@@ -3,13 +3,16 @@ import type { FileType } from "@prisma/client";
 import { toFile } from "openai/uploads";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { getVectorIndex } from "@/lib/vector-store";
+import Anthropic from "@anthropic-ai/sdk";
 
 const openAiKey = process.env.OPENAI_API_KEY;
-
 export const openai = openAiKey ? new OpenAI({ apiKey: openAiKey }) : null;
 
 const pineconeKey = process.env.PINECONE_API_KEY;
 export const pinecone = pineconeKey ? new Pinecone({ apiKey: pineconeKey }) : null;
+
+const anthropicKey = process.env.ANTHROPIC_API_KEY;
+export const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
 
 export type DocumentSummary = {
   summary: string;
@@ -168,9 +171,10 @@ export async function queryKnowledgeBase(params: {
 
   const embedding = await buildEmbeddingVector(params.query);
   const topK = params.topK ?? 6;
-  const results = await index.query({
+
+  // Pinecone v3 query - namespace is a separate method parameter
+  const results = await index.namespace(params.userId).query({
     vector: embedding,
-    namespace: params.userId,
     topK,
     includeMetadata: true
   });

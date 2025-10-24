@@ -21,27 +21,23 @@ export async function upsertDocumentEmbedding(params: {
   const index = await getVectorIndex();
   if (!index) return;
 
-  await index.upsert({
-    namespace: params.userId,
-    vectors: [
-      {
-        id: params.fileId,
-        values: params.embedding,
-        metadata: {
-          content: params.content.slice(0, 8000),
-          ...params.metadata
-        }
+  // Pinecone v3 - namespace is a separate method
+  await index.namespace(params.userId).upsert([
+    {
+      id: params.fileId,
+      values: params.embedding,
+      metadata: {
+        content: params.content.slice(0, 8000),
+        ...params.metadata
       }
-    ]
-  });
+    }
+  ]);
 }
 
 export async function removeDocumentEmbedding(userId: string, fileId: string) {
   const index = await getVectorIndex();
   if (!index) return;
 
-  await index.deleteOne({
-    namespace: userId,
-    id: fileId
-  });
+  // Pinecone v3 - namespace is a separate method
+  await index.namespace(userId).deleteOne(fileId);
 }
