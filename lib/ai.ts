@@ -1,14 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { FileType } from "@prisma/client";
 import { toFile } from "openai/uploads";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { getVectorIndex } from "@/lib/vector-store";
 
-const anthropicKey = process.env.ANTHROPIC_API_KEY;
 const openAiKey = process.env.OPENAI_API_KEY;
 
-export const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
 export const openai = openAiKey ? new OpenAI({ apiKey: openAiKey }) : null;
 
 const pineconeKey = process.env.PINECONE_API_KEY;
@@ -29,8 +26,8 @@ export async function summarizeContent(
     fileType: FileType;
   }
 ): Promise<DocumentSummary> {
-  if (!anthropic) {
-    throw new Error("Anthropic API key not configured");
+  if (!openai) {
+    throw new Error("OpenAI API key not configured");
   }
   const prompt = [
     `You are summarizing a ${fileType.toLowerCase()} titled "${title}".`,
@@ -38,28 +35,30 @@ export async function summarizeContent(
     "1. A concise summary (max 120 words).",
     "2. 3-5 bullet key points capturing the most actionable insights.",
     "",
+    "Respond in valid JSON format with keys `summary` and `keyPoints` (array of strings).",
+    "",
     "Content:",
     content.slice(0, 30000)
   ].join("\n");
 
-  const response = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20240620",
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 600,
     temperature: 0.2,
-    system:
-      "You are a world-class knowledge management assistant. Respond in valid JSON with keys `summary` and `keyPoints` (array of strings).",
+    response_format: { type: "json_object" },
     messages: [
       {
+        role: "system",
+        content: "You are a world-class knowledge management assistant. Respond in valid JSON with keys `summary` and `keyPoints` (array of strings)."
+      },
+      {
         role: "user",
-        content: [{ type: "text", text: prompt }]
+        content: prompt
       }
     ]
   });
 
-  const jsonText = response.content
-    .map((chunk) => ("text" in chunk ? chunk.text : ""))
-    .join("")
-    .trim();
+  const jsonText = response.choices[0]?.message?.content?.trim() || "{}";
 
   try {
     const parsed = JSON.parse(jsonText) as DocumentSummary;
@@ -79,8 +78,8 @@ export async function summarizeContent(
 export async function summarizeProject(
   files: Array<{ title: string; summary: string; keyPoints?: string[] }>
 ): Promise<DocumentSummary> {
-  if (!anthropic) {
-    throw new Error("Anthropic API key not configured");
+  if (!openai) {
+    throw new Error("OpenAI API key not configured");
   }
 
   const combined = files
@@ -90,29 +89,24 @@ export async function summarizeProject(
     )
     .join("\n\n");
 
-  const response = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20240620",
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 600,
     temperature: 0.2,
-    system:
-      "You combine multiple document summaries into one cohesive overview. Return JSON with keys `summary` (<= 180 words) and `keyPoints` (array of strings).",
+    response_format: { type: "json_object" },
     messages: [
       {
+        role: "system",
+        content: "You combine multiple document summaries into one cohesive overview. Return JSON with keys `summary` (<= 180 words) and `keyPoints` (array of strings)."
+      },
+      {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Summaries:\n${combined}`
-          }
-        ]
+        content: `Summaries:\n${combined}`
       }
     ]
   });
 
-  const jsonText = response.content
-    .map((chunk) => ("text" in chunk ? chunk.text : ""))
-    .join("")
-    .trim();
+  const jsonText = response.choices[0]?.message?.content?.trim() || "{}";
 
   try {
     return JSON.parse(jsonText) as DocumentSummary;
