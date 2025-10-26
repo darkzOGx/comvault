@@ -40,3 +40,6 @@ prisma/.env
 
 VERCEL_ENV_VARS.md
 .env.production
+
+# Local file uploads (development)
+/uploads

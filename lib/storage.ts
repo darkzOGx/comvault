@@ -1,6 +1,7 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createHash } from "crypto";
+import * as localStorage from "./storage-local";
 
 const region = process.env.AWS_REGION;
 const bucket = process.env.S3_BUCKET_NAME;
@@ -19,6 +20,8 @@ export const s3 =
       })
     : null;
 
+const USE_LOCAL_STORAGE = !s3 && process.env.NODE_ENV === 'development';
+
 export type PresignedUploadPayload = {
   url: string;
   fields: Record<string, string>;
@@ -31,8 +34,14 @@ export async function createPresignedUploadUrl(params: {
   filename: string;
   contentType: string;
 }) {
+  // Use local storage in development if S3 is not configured
+  if (USE_LOCAL_STORAGE) {
+    console.log("[STORAGE] Using local file system storage (development mode)");
+    return localStorage.createPresignedUploadUrl(params);
+  }
+
   if (!s3 || !bucket) {
-    throw new Error("S3 is not configured");
+    throw new Error("S3 is not configured. Please set AWS credentials in .env.local");
   }
 
   const { userId, filename, contentType } = params;
@@ -54,6 +63,11 @@ export async function createPresignedUploadUrl(params: {
 }
 
 export async function getObjectBuffer(key: string): Promise<Buffer> {
+  // Use local storage in development if S3 is not configured
+  if (USE_LOCAL_STORAGE) {
+    return localStorage.getLocalFile(key);
+  }
+
   if (!s3 || !bucket) {
     throw new Error("S3 is not configured");
   }
@@ -72,6 +86,11 @@ export async function getObjectBuffer(key: string): Promise<Buffer> {
 }
 
 export function buildPublicUrl(key: string) {
+  // Use local URLs in development if S3 is not configured
+  if (USE_LOCAL_STORAGE) {
+    return localStorage.buildPublicUrl(key);
+  }
+
   const host = process.env.NEXT_PUBLIC_S3_PUBLIC_HOST;
   if (host?.startsWith("http")) {
     return `${host.replace(/\/$/, "")}/${key}`;
