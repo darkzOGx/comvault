@@ -66,7 +66,7 @@ export async function GET(request: Request) {
       files: files.map((file) => ({
         id: file.id,
         title: file.title,
-        description: file.description,
+        description: file.description ?? "",
         summary: file.summary,
         category: file.category,
         type: file.type,

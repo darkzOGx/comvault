@@ -14,7 +14,7 @@ type DashboardData = {
   files: Array<{
     id: string;
     title: string;
-    description: string | null;
+    description: string;
     summary: string | null;
     category: string;
     type: string;
