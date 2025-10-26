@@ -1,5 +1,6 @@
 import { headers, cookies } from "next/headers";
 import { verifyUserToken, WhopServerSdk } from "@whop/api";
+import { getToken, validateToken } from "@whop-apps/sdk";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
 
@@ -113,7 +114,84 @@ export async function requireUser(request?: Request): Promise<NonNullable<Authen
 }
 
 export async function getUserFromRequest(request: Request) {
+  // Try to use Whop SDK's getToken function first
+  try {
+    console.log("[AUTH] Attempting to get token from Whop SDK...");
+    const token = await getToken({ headers: request.headers });
+
+    if (token) {
+      console.log("[AUTH] Got token from Whop SDK, validating...");
+      const { valid, userId } = await validateToken({ token });
+
+      if (valid && userId) {
+        console.log("[AUTH] Token validated, userId:", userId);
+        return await getUserOrCreateFromWhopUserId(userId);
+      }
+    }
+  } catch (error) {
+    console.log("[AUTH] Whop SDK getToken failed:", error);
+    // Fall through to legacy method
+  }
+
+  // Fall back to legacy header parsing method
   return getUserFromHeaders(request.headers);
+}
+
+async function getUserOrCreateFromWhopUserId(whopUserId: string) {
+  try {
+    const whopUser =
+      whopServerSdk &&
+      (await whopServerSdk.users
+        .getUser({ userId: whopUserId })
+        .catch((error) => {
+          console.error("Failed to retrieve Whop user profile", error);
+          return null;
+        }));
+
+    const role = resolveRole(whopUser ?? undefined);
+
+    const name =
+      (whopUser &&
+        ("displayName" in whopUser ? (whopUser as Record<string, unknown>)["displayName"] : null)) ||
+      whopUser?.name ||
+      whopUser?.username ||
+      null;
+
+    const avatarUrl =
+      (typeof whopUser?.profilePicture === "string"
+        ? whopUser.profilePicture
+        : whopUser?.profilePicture && typeof whopUser.profilePicture === "object" && "sourceUrl" in whopUser.profilePicture
+          ? whopUser.profilePicture.sourceUrl
+          : null) || null;
+
+    const email =
+      (whopUser && "email" in whopUser ? (whopUser as Record<string, unknown>)["email"] : null) ||
+      null;
+
+    const user = await prisma.user.upsert({
+      where: { whopUserId },
+      create: {
+        whopUserId,
+        email: typeof email === "string" ? email : null,
+        name: typeof name === "string" ? name : null,
+        avatarUrl: typeof avatarUrl === "string" ? avatarUrl : null,
+        role
+      },
+      update: {
+        email: typeof email === "string" ? email : undefined,
+        name: typeof name === "string" ? name : undefined,
+        avatarUrl: typeof avatarUrl === "string" ? avatarUrl : undefined,
+        role
+      }
+    });
+
+    console.log("[AUTH] User upserted:", user.id);
+    persistSessionCookie(user.id);
+    return user;
+  } catch (error) {
+    console.error("[AUTH] Failed to create/update user from Whop userId:", error);
+    return null;
+  }
 }
 
 async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
