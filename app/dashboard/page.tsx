@@ -72,8 +72,28 @@ export default function DashboardPage() {
       }
 
       try {
+        console.log("[Dashboard] Whop SDK ready, establishing session...");
+
+        // First, establish a session by calling the auth endpoint
+        // This will set a session cookie that subsequent requests can use
+        const sessionResponse = await fetch("/api/auth/session", {
+          method: "POST",
+          credentials: "include" // Important: include cookies in request
+        });
+
+        if (!sessionResponse.ok) {
+          const sessionError = await sessionResponse.json();
+          throw new Error(sessionError.error || "Failed to establish session");
+        }
+
+        const sessionData = await sessionResponse.json();
+        console.log("[Dashboard] Session established for user:", sessionData.user.id);
+
+        // Now fetch dashboard data with the session cookie
         console.log("[Dashboard] Fetching dashboard data...");
-        const response = await fetch("/api/dashboard/data");
+        const response = await fetch("/api/dashboard/data", {
+          credentials: "include" // Important: include session cookie
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
