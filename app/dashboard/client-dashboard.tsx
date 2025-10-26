@@ -4,14 +4,20 @@ import { useEffect, useState } from "react";
 import { useWhopBridge } from "@/components/whop-bridge-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const RELOAD_KEY = "whop_auth_reloaded";
+
 export function ClientDashboard() {
   const { sdk, ready } = useWhopBridge();
-  const [hasReloaded, setHasReloaded] = useState(false);
+  const [hasReloaded, setHasReloaded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(RELOAD_KEY) === "true";
+  });
 
   useEffect(() => {
-    // When SDK is ready and loaded, reload the page to trigger server-side auth
+    // When SDK is ready and loaded, reload the page ONCE to trigger server-side auth
     if (ready && sdk && !hasReloaded) {
       console.log("[ClientDashboard] Whop SDK ready, reloading to authenticate...");
+      sessionStorage.setItem(RELOAD_KEY, "true");
       setHasReloaded(true);
       // Small delay to ensure Whop headers are set
       setTimeout(() => {
