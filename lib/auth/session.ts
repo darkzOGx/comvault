@@ -67,21 +67,25 @@ export async function getCurrentUser() {
 
   const user = await getUserFromHeaders(hdrs);
 
-  // Temporary fallback: if no Whop auth, return first user from DB for testing
-  if (!user) {
-    console.log("[AUTH] No user from Whop headers, trying fallback...");
+  // Development fallback: if no Whop auth, return test user from DB
+  if (!user && process.env.NODE_ENV === 'development') {
+    console.log("[AUTH] No user from Whop headers, using development fallback...");
     try {
-      const testUser = await prisma.user.findFirst();
+      const testUser = await prisma.user.findFirst({
+        where: { whopUserId: 'test_user_local' }
+      });
       if (testUser) {
         console.log("[AUTH] Using fallback test user:", testUser.id);
+        // Set session cookie for this user
+        persistSessionCookie(testUser.id);
         return testUser;
       } else {
-        console.log("[AUTH] No users found in database");
+        console.log("[AUTH] No test user found - run seed script");
       }
     } catch (error) {
       console.error("[AUTH] Error fetching fallback user:", error);
     }
-  } else {
+  } else if (user) {
     console.log("[AUTH] User authenticated via Whop:", user.id);
   }
 
