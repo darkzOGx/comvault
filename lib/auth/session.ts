@@ -1,6 +1,6 @@
 import { headers, cookies } from "next/headers";
 import { verifyUserToken, WhopServerSdk } from "@whop/api";
-import { getToken, validateToken } from "@whop-apps/sdk";
+import { validateToken } from "@whop-apps/sdk";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
 
@@ -114,22 +114,17 @@ export async function requireUser(request?: Request): Promise<NonNullable<Authen
 }
 
 export async function getUserFromRequest(request: Request) {
-  // Try to use Whop SDK's getToken function first
+  // Try to use Whop SDK's validateToken function first
   try {
-    console.log("[AUTH] Attempting to get token from Whop SDK...");
-    const token = await getToken({ headers: request.headers });
+    console.log("[AUTH] Attempting to validate token from Whop SDK...");
+    const { userId } = await validateToken({ headers: request.headers });
 
-    if (token) {
-      console.log("[AUTH] Got token from Whop SDK, validating...");
-      const { valid, userId } = await validateToken({ token });
-
-      if (valid && userId) {
-        console.log("[AUTH] Token validated, userId:", userId);
-        return await getUserOrCreateFromWhopUserId(userId);
-      }
+    if (userId) {
+      console.log("[AUTH] Token validated, userId:", userId);
+      return await getUserOrCreateFromWhopUserId(userId);
     }
   } catch (error) {
-    console.log("[AUTH] Whop SDK getToken failed:", error);
+    console.log("[AUTH] Whop SDK validateToken failed:", error);
     // Fall through to legacy method
   }
 
