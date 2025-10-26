@@ -76,7 +76,9 @@ export default function DashboardPage() {
         const response = await fetch("/api/dashboard/data");
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
+          const errorData = await response.json().catch(() => ({}));
+          console.error("[Dashboard] Server error response:", errorData);
+          throw new Error(errorData.details || `Failed to fetch dashboard data: ${response.statusText}`);
         }
 
         const dashboardData = await response.json();
