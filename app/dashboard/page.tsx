@@ -74,14 +74,8 @@ export default function DashboardPage() {
       try {
         console.log("[Dashboard] Fetching dashboard data...");
 
-        // Get auth token from Whop SDK
-        const token = await sdk.getAccessToken();
-        console.log("[Dashboard] Got access token from Whop SDK:", !!token);
-
         const response = await fetch("/api/dashboard/data", {
-          headers: token ? {
-            'Authorization': `Bearer ${token}`
-          } : {}
+          credentials: 'same-origin' // Include cookies in the request
         });
 
         if (!response.ok) {
