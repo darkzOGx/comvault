@@ -11,23 +11,50 @@ import { getUserFromRequest } from "@/lib/auth/session";
 export async function POST(request: Request) {
   try {
     console.log("[API /auth/session] POST - Establishing user session...");
-    console.log("[API /auth/session] Headers:", Object.fromEntries(request.headers.entries()));
+
+    // Log environment info
+    console.log("[API /auth/session] Environment:", {
+      NODE_ENV: process.env.NODE_ENV,
+      host: request.headers.get("host"),
+      hasWhopAppId: !!process.env.NEXT_PUBLIC_WHOP_APP_ID,
+      hasWhopApiKey: !!process.env.WHOP_SERVER_API_KEY
+    });
+
+    // Log all headers (for debugging)
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    console.log("[API /auth/session] Request headers:", headers);
 
     // getUserFromRequest will:
     // 1. Try to verify Whop headers from the request
-    // 2. Create/update user in database
-    // 3. Set session cookie via persistSessionCookie
+    // 2. Create/update user in database if Whop auth succeeds
+    // 3. Fall back to test user if localhost + development
+    // 4. Set session cookie via persistSessionCookie
     const user = await getUserFromRequest(request);
 
     if (!user) {
-      console.log("[API /auth/session] No user authenticated from Whop headers");
+      console.log("[API /auth/session] FAILED - No user authenticated");
+      console.log("[API /auth/session] This could mean:");
+      console.log("  1. Not running in Whop iframe (no Whop headers)");
+      console.log("  2. Whop authentication failed");
+      console.log("  3. Not on localhost (no dev fallback)");
+
       return NextResponse.json(
-        { error: "Authentication required" },
+        {
+          error: "Authentication required",
+          details: "No Whop authentication headers found and not in development mode"
+        },
         { status: 401 }
       );
     }
 
-    console.log("[API /auth/session] Session established for user:", user.id);
+    console.log("[API /auth/session] SUCCESS - Session established for user:", {
+      id: user.id,
+      name: user.name,
+      whopUserId: user.whopUserId
+    });
 
     return NextResponse.json({
       success: true,
@@ -39,7 +66,7 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
-    console.error("[API /auth/session] Failed to establish session", error);
+    console.error("[API /auth/session] EXCEPTION - Failed to establish session:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to establish session" },
       { status: 500 }

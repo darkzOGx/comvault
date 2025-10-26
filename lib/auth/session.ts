@@ -165,6 +165,29 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
     console.warn("[AUTH] Error reading session cookie:", error);
   }
 
+  // Development fallback: ONLY use test user on localhost
+  // This is the same fallback logic as getCurrentUser()
+  const isLocalhost = targetHeaders.get('host')?.includes('localhost') || targetHeaders.get('host')?.includes('127.0.0.1');
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  if (!user && isDevelopment && isLocalhost) {
+    console.log("[AUTH] No user from Whop headers, using LOCALHOST development fallback...");
+    try {
+      const testUser = await prisma.user.findFirst({
+        where: { whopUserId: 'test_user_local' }
+      });
+      if (testUser) {
+        console.log("[AUTH] Using fallback test user on localhost:", testUser.id);
+        persistSessionCookie(testUser.id);
+        return testUser;
+      } else {
+        console.log("[AUTH] No test user found - run seed script");
+      }
+    } catch (error) {
+      console.error("[AUTH] Error fetching fallback user:", error);
+    }
+  }
+
   return null;
 }
 
