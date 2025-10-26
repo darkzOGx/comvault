@@ -145,14 +145,21 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
   try {
     // Try to get cookie from headers first (for API routes)
     const cookieHeader = targetHeaders.get('cookie');
+    console.log("[AUTH] Cookie header value:", cookieHeader ? `present (${cookieHeader.length} chars)` : "not present");
     let sessionId: string | undefined;
 
     if (cookieHeader) {
       const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
       sessionId = match?.[1];
+      console.log("[AUTH] Session ID from cookie header:", sessionId ? `found (${sessionId})` : "not found");
     } else {
       // Fall back to cookies() API for server components
-      sessionId = cookies().get(SESSION_COOKIE_NAME)?.value;
+      try {
+        sessionId = cookies().get(SESSION_COOKIE_NAME)?.value;
+        console.log("[AUTH] Session ID from cookies() API:", sessionId ? `found (${sessionId})` : "not found");
+      } catch (cookieError) {
+        console.log("[AUTH] cookies() API not available (likely API route context)");
+      }
     }
 
     if (sessionId) {
@@ -161,7 +168,11 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
       if (cookieUser) {
         console.log("[AUTH] User authenticated via session cookie:", cookieUser.id);
         return cookieUser;
+      } else {
+        console.log("[AUTH] Session cookie contains invalid user ID:", sessionId);
       }
+    } else {
+      console.log("[AUTH] No session cookie found in request");
     }
   } catch (error) {
     console.warn("[AUTH] Error reading session cookie:", error);
@@ -243,9 +254,12 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
 
 function persistSessionCookie(userId: string) {
   try {
+    console.log("[AUTH] Attempting to set session cookie for user:", userId);
+    console.log("[AUTH] Cookie options:", SESSION_COOKIE_OPTIONS);
     cookies().set(SESSION_COOKIE_NAME, userId, SESSION_COOKIE_OPTIONS);
+    console.log("[AUTH] Session cookie set successfully");
   } catch (error) {
-    console.warn("[AUTH] Failed to persist session cookie", error);
+    console.warn("[AUTH] Failed to persist session cookie:", error);
   }
 }
 
