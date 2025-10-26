@@ -4,7 +4,7 @@ import { useWhopBridge } from "@/components/whop-bridge-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ClientDashboard() {
-  const { sdk, ready, error: sdkError } = useWhopBridge();
+  const { sdk, ready } = useWhopBridge();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
