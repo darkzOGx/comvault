@@ -1,10 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useWhopBridge } from "@/components/whop-bridge-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ClientDashboard() {
   const { sdk, ready } = useWhopBridge();
+  const [hasReloaded, setHasReloaded] = useState(false);
+
+  useEffect(() => {
+    // When SDK is ready and loaded, reload the page to trigger server-side auth
+    if (ready && sdk && !hasReloaded) {
+      console.log("[ClientDashboard] Whop SDK ready, reloading to authenticate...");
+      setHasReloaded(true);
+      // Small delay to ensure Whop headers are set
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+  }, [ready, sdk, hasReloaded]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
@@ -12,7 +26,7 @@ export function ClientDashboard() {
         <CardHeader>
           <CardTitle>Community Vault</CardTitle>
           <CardDescription>
-            {ready ? "Authentication Required" : "Initializing..."}
+            {ready && sdk ? "Authenticating..." : ready ? "Authentication Required" : "Initializing..."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -41,8 +55,9 @@ export function ClientDashboard() {
               </button>
             </>
           ) : (
-            <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              {ready && sdk && <p className="text-xs text-muted-foreground">Connecting to Whop...</p>}
             </div>
           )}
         </CardContent>
