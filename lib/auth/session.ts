@@ -141,12 +141,29 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
 
   // Try cookie-based session as a fallback (used by client-side API calls)
   try {
-    const sessionId = cookies().get(SESSION_COOKIE_NAME)?.value;
-    if (sessionId) {
-      const cookieUser = await prisma.user.findUnique({ where: { id: sessionId } });
-      if (cookieUser) return cookieUser;
+    // Try to get cookie from headers first (for API routes)
+    const cookieHeader = targetHeaders.get('cookie');
+    let sessionId: string | undefined;
+
+    if (cookieHeader) {
+      const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
+      sessionId = match?.[1];
+    } else {
+      // Fall back to cookies() API for server components
+      sessionId = cookies().get(SESSION_COOKIE_NAME)?.value;
     }
-  } catch {}
+
+    if (sessionId) {
+      console.log("[AUTH] Found session cookie, looking up user:", sessionId);
+      const cookieUser = await prisma.user.findUnique({ where: { id: sessionId } });
+      if (cookieUser) {
+        console.log("[AUTH] User authenticated via session cookie:", cookieUser.id);
+        return cookieUser;
+      }
+    }
+  } catch (error) {
+    console.warn("[AUTH] Error reading session cookie:", error);
+  }
 
   return null;
 }
