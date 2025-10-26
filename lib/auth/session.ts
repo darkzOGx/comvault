@@ -1,6 +1,5 @@
 import { headers, cookies } from "next/headers";
 import { verifyUserToken, WhopServerSdk } from "@whop/api";
-import { validateToken } from "@whop-apps/sdk";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
 
@@ -114,79 +113,7 @@ export async function requireUser(request?: Request): Promise<NonNullable<Authen
 }
 
 export async function getUserFromRequest(request: Request) {
-  // Try to use Whop SDK's validateToken function first
-  try {
-    console.log("[AUTH] Attempting to validate token from Whop SDK...");
-    const { userId } = await validateToken({ headers: request.headers });
-
-    if (userId) {
-      console.log("[AUTH] Token validated, userId:", userId);
-      return await getUserOrCreateFromWhopUserId(userId);
-    }
-  } catch (error) {
-    console.log("[AUTH] Whop SDK validateToken failed:", error);
-    // Fall through to legacy method
-  }
-
-  // Fall back to legacy header parsing method
   return getUserFromHeaders(request.headers);
-}
-
-async function getUserOrCreateFromWhopUserId(whopUserId: string) {
-  try {
-    const whopUser =
-      whopServerSdk &&
-      (await whopServerSdk.users
-        .getUser({ userId: whopUserId })
-        .catch((error) => {
-          console.error("Failed to retrieve Whop user profile", error);
-          return null;
-        }));
-
-    const role = resolveRole(whopUser ?? undefined);
-
-    const name =
-      (whopUser &&
-        ("displayName" in whopUser ? (whopUser as Record<string, unknown>)["displayName"] : null)) ||
-      whopUser?.name ||
-      whopUser?.username ||
-      null;
-
-    const avatarUrl =
-      (typeof whopUser?.profilePicture === "string"
-        ? whopUser.profilePicture
-        : whopUser?.profilePicture && typeof whopUser.profilePicture === "object" && "sourceUrl" in whopUser.profilePicture
-          ? whopUser.profilePicture.sourceUrl
-          : null) || null;
-
-    const email =
-      (whopUser && "email" in whopUser ? (whopUser as Record<string, unknown>)["email"] : null) ||
-      null;
-
-    const user = await prisma.user.upsert({
-      where: { whopUserId },
-      create: {
-        whopUserId,
-        email: typeof email === "string" ? email : null,
-        name: typeof name === "string" ? name : null,
-        avatarUrl: typeof avatarUrl === "string" ? avatarUrl : null,
-        role
-      },
-      update: {
-        email: typeof email === "string" ? email : undefined,
-        name: typeof name === "string" ? name : undefined,
-        avatarUrl: typeof avatarUrl === "string" ? avatarUrl : undefined,
-        role
-      }
-    });
-
-    console.log("[AUTH] User upserted:", user.id);
-    persistSessionCookie(user.id);
-    return user;
-  } catch (error) {
-    console.error("[AUTH] Failed to create/update user from Whop userId:", error);
-    return null;
-  }
 }
 
 async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
@@ -238,29 +165,6 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
     console.warn("[AUTH] Error reading session cookie:", error);
   }
 
-  // Development fallback: ONLY use test user on localhost
-  // This is the same fallback logic as getCurrentUser()
-  const isLocalhost = targetHeaders.get('host')?.includes('localhost') || targetHeaders.get('host')?.includes('127.0.0.1');
-  const isDevelopment = process.env.NODE_ENV === 'development';
-
-  if (!user && isDevelopment && isLocalhost) {
-    console.log("[AUTH] No user from Whop headers, using LOCALHOST development fallback...");
-    try {
-      const testUser = await prisma.user.findFirst({
-        where: { whopUserId: 'test_user_local' }
-      });
-      if (testUser) {
-        console.log("[AUTH] Using fallback test user on localhost:", testUser.id);
-        persistSessionCookie(testUser.id);
-        return testUser;
-      } else {
-        console.log("[AUTH] No test user found - run seed script");
-      }
-    } catch (error) {
-      console.error("[AUTH] Error fetching fallback user:", error);
-    }
-  }
-
   return null;
 }
 
@@ -272,29 +176,6 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
       return null;
     }
 
-    // Check for Authorization header with Bearer token (client-side SDK)
-    const authHeader = targetHeaders.get("authorization");
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.substring(7);
-      console.log("[AUTH] Found Bearer token in Authorization header");
-
-      // Create a new Headers object with the token in the Whop-expected format
-      const whopHeaders = new Headers(targetHeaders);
-      whopHeaders.set("whop-user-token", token);
-
-      console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
-      const payload = await verifyUserToken(whopHeaders, { appId: APP_ID });
-      console.log("[AUTH] Whop token payload:", payload);
-      if (!payload?.userId) {
-        console.log("[AUTH] No userId in Whop token payload");
-        return null;
-      }
-      console.log("[AUTH] Whop userId found:", payload.userId);
-
-      // Continue with user creation/update below
-      return await createOrUpdateUserFromWhopPayload(payload);
-    }
-
     console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
     console.log("[AUTH] Whop token payload:", payload);
@@ -303,16 +184,6 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
       return null;
     }
     console.log("[AUTH] Whop userId found:", payload.userId);
-
-    return await createOrUpdateUserFromWhopPayload(payload);
-  } catch (error) {
-    console.error("Failed to verify Whop token", error);
-    return null;
-  }
-}
-
-async function createOrUpdateUserFromWhopPayload(payload: { userId: string }) {
-  try {
 
     const whopUser =
       whopServerSdk &&

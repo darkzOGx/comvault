@@ -72,40 +72,11 @@ export default function DashboardPage() {
       }
 
       try {
-        console.log("[Dashboard] Whop SDK ready, establishing session...");
-
-        // When running in Whop iframe, Whop automatically injects auth headers
-        // into requests made to our domain. We just need to make the request.
-        console.log("[Dashboard] Calling session endpoint...");
-
-        // First, establish a session by calling the auth endpoint
-        // Whop will inject authentication headers automatically when in iframe
-        const sessionResponse = await fetch("/api/auth/session", {
-          method: "POST",
-          credentials: "same-origin", // Include cookies from same origin
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-
-        if (!sessionResponse.ok) {
-          const sessionError = await sessionResponse.json().catch(() => ({ error: "Unknown error" }));
-          console.error("[Dashboard] Session establishment failed:", sessionError);
-          throw new Error(sessionError.error || sessionError.details || "Failed to establish session");
-        }
-
-        const sessionData = await sessionResponse.json();
-        console.log("[Dashboard] Session established for user:", sessionData.user);
-
-        // Now fetch dashboard data with the session cookie
         console.log("[Dashboard] Fetching dashboard data...");
-        const response = await fetch("/api/dashboard/data", {
-          credentials: "same-origin" // Include session cookie
-        });
+        const response = await fetch("/api/dashboard/data");
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-          throw new Error(errorData.error || `Failed to fetch dashboard data: ${response.statusText}`);
+          throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
         }
 
         const dashboardData = await response.json();
