@@ -39,10 +39,16 @@ type DashboardData = {
     count: number;
   }>;
   analytics: {
-    totals: { totalFiles: number; totalViews: number; totalRevenue: number };
-    topViewed: Array<{ id: string; title: string; views: number }>;
-    topSelling: Array<{ id: string; title: string; revenue: number }>;
-    recentTransactions: Array<{ id: string; type: string; amount: number; createdAt: string }>;
+    totals: { revenue: number; views: number; files: number };
+    topViewed: Array<{ id: string; title: string; views: number; revenue: number }>;
+    topSelling: Array<{ id: string; title: string; views: number; revenue: number }>;
+    recentTransactions: Array<{
+      id: string;
+      amount: number;
+      currency: string;
+      createdAtLabel: string;
+      fileId: string;
+    }>;
   };
   notifications: Array<{
     id: string;

@@ -93,7 +93,11 @@ export async function GET(request: Request) {
       })),
       categories,
       analytics: {
-        totals: analytics.totals,
+        totals: {
+          revenue: analytics.totals.revenue,
+          views: analytics.totals.views,
+          files: analytics.totals.files
+        },
         topViewed: analytics.topViewed,
         topSelling: analytics.topSelling,
         recentTransactions: analytics.recentTransactions
