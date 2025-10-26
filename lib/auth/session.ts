@@ -7,7 +7,14 @@ const APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID;
 const WHOP_API_KEY = process.env.WHOP_SERVER_API_KEY;
 
 if (!APP_ID) {
-  console.warn("NEXT_PUBLIC_WHOP_APP_ID is not set. Whop auth will fail.");
+  console.error("🚨 CRITICAL: NEXT_PUBLIC_WHOP_APP_ID is not set in environment variables!");
+  console.error("   This will cause authentication to fail for all users.");
+  console.error("   See VERCEL_SETUP.md for instructions on setting environment variables.");
+}
+
+if (!WHOP_API_KEY) {
+  console.error("🚨 CRITICAL: WHOP_SERVER_API_KEY is not set in environment variables!");
+  console.error("   User profile data will not be retrievable.");
 }
 
 // Disable lint rule for Whop SDK initialization pattern
@@ -146,6 +153,12 @@ async function getUserFromHeaders(incoming: Headers | HeaderMap | undefined) {
 
 async function getUserFromWhopHeaders(targetHeaders: Headers) {
   try {
+    if (!APP_ID) {
+      console.error("[AUTH] Cannot verify Whop token: APP_ID is undefined");
+      console.error("[AUTH] Set NEXT_PUBLIC_WHOP_APP_ID in Vercel environment variables");
+      return null;
+    }
+
     console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
     console.log("[AUTH] Whop token payload:", payload);
