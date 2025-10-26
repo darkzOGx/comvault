@@ -179,6 +179,71 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
     }
 
     console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
+
+    // Try Bearer token from Authorization header first (for client-side SDK calls)
+    const authHeader = targetHeaders.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      console.log("[AUTH] Found Bearer token in Authorization header");
+      const modifiedHeaders = new Headers(targetHeaders);
+      // Remove the Bearer prefix and set as expected by Whop SDK
+      const token = authHeader.substring(7);
+      modifiedHeaders.set('authorization', token);
+      const payload = await verifyUserToken(modifiedHeaders, { appId: APP_ID });
+      console.log("[AUTH] Bearer token payload:", payload);
+      if (payload?.userId) {
+        console.log("[AUTH] Whop userId found from Bearer token:", payload.userId);
+        // Continue to user creation/update below
+        const whopUser =
+          whopServerSdk &&
+          (await whopServerSdk.users
+            .getUser({ userId: payload.userId })
+            .catch((error) => {
+              console.error("Failed to retrieve Whop user profile", error);
+              return null;
+            }));
+
+        const role = resolveRole(whopUser ?? undefined);
+
+        const name =
+          (whopUser &&
+            ("displayName" in whopUser ? (whopUser as Record<string, unknown>)["displayName"] : null)) ||
+          whopUser?.name ||
+          whopUser?.username ||
+          null;
+
+        const avatarUrl =
+          (typeof whopUser?.profilePicture === "string"
+            ? whopUser.profilePicture
+            : whopUser?.profilePicture && typeof whopUser.profilePicture === "object" && "sourceUrl" in whopUser.profilePicture
+              ? whopUser.profilePicture.sourceUrl
+              : null) || null;
+
+        const email =
+          (whopUser && "email" in whopUser ? (whopUser as Record<string, unknown>)["email"] : null) ||
+          null;
+
+        const user = await prisma.user.upsert({
+          where: { whopUserId: payload.userId },
+          create: {
+            whopUserId: payload.userId,
+            email: typeof email === "string" ? email : null,
+            name: typeof name === "string" ? name : null,
+            avatarUrl: typeof avatarUrl === "string" ? avatarUrl : null,
+            role
+          },
+          update: {
+            email: typeof email === "string" ? email : undefined,
+            name: typeof name === "string" ? name : undefined,
+            avatarUrl: typeof avatarUrl === "string" ? avatarUrl : undefined,
+            role
+          }
+        });
+
+        return user;
+      }
+    }
+
+    // Fall back to iframe headers (for SSR)
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
     console.log("[AUTH] Whop token payload:", payload);
     if (!payload?.userId) {
