@@ -199,6 +199,29 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
       return null;
     }
 
+    // Check for Authorization header with Bearer token (client-side SDK)
+    const authHeader = targetHeaders.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      console.log("[AUTH] Found Bearer token in Authorization header");
+
+      // Create a new Headers object with the token in the Whop-expected format
+      const whopHeaders = new Headers(targetHeaders);
+      whopHeaders.set("whop-user-token", token);
+
+      console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
+      const payload = await verifyUserToken(whopHeaders, { appId: APP_ID });
+      console.log("[AUTH] Whop token payload:", payload);
+      if (!payload?.userId) {
+        console.log("[AUTH] No userId in Whop token payload");
+        return null;
+      }
+      console.log("[AUTH] Whop userId found:", payload.userId);
+
+      // Continue with user creation/update below
+      return await createOrUpdateUserFromWhopPayload(payload);
+    }
+
     console.log("[AUTH] Verifying Whop token with APP_ID:", APP_ID);
     const payload = await verifyUserToken(targetHeaders, { appId: APP_ID });
     console.log("[AUTH] Whop token payload:", payload);
@@ -207,6 +230,16 @@ async function getUserFromWhopHeaders(targetHeaders: Headers) {
       return null;
     }
     console.log("[AUTH] Whop userId found:", payload.userId);
+
+    return await createOrUpdateUserFromWhopPayload(payload);
+  } catch (error) {
+    console.error("Failed to verify Whop token", error);
+    return null;
+  }
+}
+
+async function createOrUpdateUserFromWhopPayload(payload: { userId: string }) {
+  try {
 
     const whopUser =
       whopServerSdk &&

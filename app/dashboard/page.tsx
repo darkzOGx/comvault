@@ -72,13 +72,38 @@ export default function DashboardPage() {
       }
 
       try {
-        console.log("[Dashboard] Whop SDK ready, establishing session...");
+        console.log("[Dashboard] Whop SDK ready, getting user token...");
+
+        // Get the user token from Whop SDK
+        let userToken: string | null = null;
+        try {
+          const user = await sdk.getUserToken();
+          userToken = user;
+          console.log("[Dashboard] Got user token from Whop SDK");
+        } catch (tokenError) {
+          console.warn("[Dashboard] Failed to get user token from SDK:", tokenError);
+          // Continue anyway - might be in development mode
+        }
+
+        // Prepare headers with Whop user token if available
+        const headers: HeadersInit = {
+          "Content-Type": "application/json"
+        };
+
+        if (userToken) {
+          // Whop expects the token in a specific header format
+          headers["Authorization"] = `Bearer ${userToken}`;
+          console.log("[Dashboard] Using Whop token for authentication");
+        }
+
+        console.log("[Dashboard] Establishing session...");
 
         // First, establish a session by calling the auth endpoint
         // This will set a session cookie that subsequent requests can use
         const sessionResponse = await fetch("/api/auth/session", {
           method: "POST",
-          credentials: "include" // Important: include cookies in request
+          credentials: "include", // Important: include cookies
+          headers
         });
 
         if (!sessionResponse.ok) {
