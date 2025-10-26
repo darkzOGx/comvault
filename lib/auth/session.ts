@@ -105,7 +105,9 @@ export async function getCurrentUser() {
 }
 
 export async function requireUser(request?: Request): Promise<NonNullable<AuthenticatedUser>> {
+  console.log("[AUTH] requireUser called, has request:", !!request);
   const user = await (request ? getUserFromRequest(request) : getCurrentUser());
+  console.log("[AUTH] User result:", user ? `Found user ${user.id}` : "No user found");
   if (!user) {
     throw new Error("Authentication required.");
   }

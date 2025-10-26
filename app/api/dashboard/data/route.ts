@@ -8,7 +8,9 @@ import { getUserAnalytics } from "@/lib/analytics";
  */
 export async function GET(request: Request) {
   try {
+    console.log("[API] /api/dashboard/data - Starting request");
     const user = await requireUser(request);
+    console.log("[API] User authenticated:", user.id);
 
     const [projects, files, analytics, notifications] = await Promise.all([
       prisma.project.findMany({
@@ -111,8 +113,16 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("[API] Failed to fetch dashboard data", error);
+    console.error("[API] Error details:", {
+      name: error instanceof Error ? error.name : "Unknown",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: "Failed to fetch dashboard data" },
+      {
+        error: "Failed to fetch dashboard data",
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
